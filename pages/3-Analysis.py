@@ -12,8 +12,8 @@ from sklearn.preprocessing import LabelEncoder
 import json
 from supabase import create_client, Client
 from datetime import datetime, timezone
-# from fpdf import FPDF
-# from theme.cus import set_page_config_analis, inject_custom_css_analis, render_sidebar
+from fpdf import FPDF
+import io
 
 # Define the folder paths
 folderML = 'hasil/ML'
@@ -199,7 +199,51 @@ def get_user_input_ml():
         "cdh1_mut": [cdh1_mut],
         "atr_mut": [atr_mut],
     })
+# Function to generate a PDF report and provide a download link
+def generate_pdf(input_data, result, model_type):
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
 
+    # Set up the title
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(0, 10, f"Prediction Report ({model_type})", 0, 1, 'C')
+
+    # Add patient name if present
+    patient_name = input_data.get("patient", "")
+    if patient_name:
+        pdf.set_font("Arial", "B", 14)
+        pdf.cell(0, 10, f"Patient Name: {patient_name}", 0, 1)
+    
+    # Add a section for user input data
+    pdf.set_font("Arial", "", 12)
+    pdf.ln(10)  # Add a line break
+    pdf.cell(0, 10, "User Input Data:", 0, 1)
+    pdf.set_font("Arial", "", 10)
+
+    # Display each input data entry
+    for key, value in input_data.items():
+        if key != "patient":  # Avoid duplicating the patient field
+            pdf.cell(0, 10, f"{key}: {value[0] if isinstance(value, list) else value}", 0, 1)
+
+    # Add prediction result
+    pdf.ln(10)  # Add a line break
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "Prediction Result:", 0, 1)
+    pdf.cell(0, 10, f"Predicted Cancer Type: {result}", 0, 1)
+
+    # Create a BytesIO object to hold the PDF
+    pdf_output = io.BytesIO()
+    pdf.output(pdf_output)
+    pdf_output.seek(0)
+
+    # Display download link
+    st.download_button(
+        label="Download PDF Report",
+        data=pdf_output,
+        file_name="prediction_report.pdf",
+        mime="application/pdf"
+    )
 def set_page_config():
     """Set the initial page configuration."""
     st.set_page_config(
@@ -513,11 +557,14 @@ def main():
             
             if st.button('Submit'):
                 result = ml_prediction(input_data)
-                st.write(f"Predicted Cancer Type : {result}")
+                # st.write(f"Predicted Cancer Type : {result}")
 
                 # Insert data into Supabase
                 insert_to_supabase(input_data, model_type='ML')
                 st.write(f"Data Inserted")
+                # Generate PDF report
+                generate_pdf(input_data.iloc[0].to_dict(), result, model_type='Machine Learning')
+
 
         elif model_choice == 'Deep Learning':
             input_data = get_user_input_dl()
@@ -525,11 +572,13 @@ def main():
             # Add submit button
             if st.button('Submit'):
                 result = dl_prediction(input_data)
-                st.write(f"Predicted Cancer Type : {result}")
+                # st.write(f"Predicted Cancer Type : {result}")
              
                 # Insert data into Supabase
                 insert_to_supabase(input_data, model_type='DL')
                 st.write(f"Data Inserted")
+                # Generate PDF report
+                generate_pdf(input_data, result, model_type='Deep Learning')
 
 
 if __name__ == "__main__":
