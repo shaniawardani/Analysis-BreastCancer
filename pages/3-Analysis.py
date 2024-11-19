@@ -12,7 +12,7 @@ from sklearn.preprocessing import LabelEncoder
 import json
 from supabase import create_client, Client
 from datetime import datetime, timezone
-from fpdf import FPDF
+from fpdf import FPDF 
 # from theme.cus import set_page_config_analis, inject_custom_css_analis, render_sidebar
 
 # Define the folder paths
