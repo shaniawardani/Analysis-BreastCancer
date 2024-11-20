@@ -1,0 +1,7 @@
+{
+    "build": {
+        "commands": {
+            "start": "streamlit run Dashboard.py"
+        }
+    }
+}
