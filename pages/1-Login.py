@@ -105,6 +105,13 @@ def inject_custom_css():
 def render_sidebar():
     """Render the sidebar with navigation."""
     with st.sidebar:
+        # if st.button("Logout"):
+        #     # Hapus semua data di session_state (opsional)
+        #     for key in st.session_state.keys():
+        #         del st.session_state[key]
+        #     # Beri konfirmasi logout (opsional)
+        #     st.switch_page("Dashboard.py")  # Redirect ke halaman login (jika ada sistem multi-halaman)
+        #     st.success("You have successfully logged out.")
         st.markdown(
            """
             <div style="text-align: center;">
@@ -198,12 +205,12 @@ def login(email, password):
             
     return False
 
-def logout():
-    """Log out the user by clearing session state."""
-    del st.session_state['logged_in']
-    del st.session_state['username']
-    del st.session_state['email']
-    st.success("You have been logged out!")
+# def logout():
+#     """Log out the user by clearing session state."""
+#     del st.session_state['logged_in']
+#     del st.session_state['username']
+#     del st.session_state['email']
+#     st.success("You have been logged out!")
 
 def main():
     inject_custom_css()
@@ -217,12 +224,12 @@ def main():
         #st.write("Welcome to the dashboard!")
         st.write(f"Welcome, {st.session_state['username']}!")
 
-         # Add a logout button
-        if st.button("Log Out"):
-            logout()
-            st.session_state['logged_in'] = False  # Set to False so it will show login form again
-            #st.rerun()  # Refresh the app to go back to login form
-            st.switch_page("Dashboard.py")
+         # Add a Center logout button 
+        # if st.button("Log Out"):
+        #     logout()
+        #     st.session_state['logged_in'] = False  # Set to False so it will show login form again
+        #     #st.rerun()  # Refresh the app to go back to login form
+        #     st.switch_page("Dashboard.py")
     else:        
         login_form()
 

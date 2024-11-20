@@ -322,6 +322,13 @@ def inject_custom_css():
 def render_sidebar():
     """Render the sidebar with navigation."""
     with st.sidebar:
+        if st.button("Logout"):
+            # Hapus semua data di session_state (opsional)
+            for key in st.session_state.keys():
+                del st.session_state[key]
+            # Beri konfirmasi logout (opsional)
+            st.switch_page("Dashboard.py")  # Redirect ke halaman login (jika ada sistem multi-halaman)
+            st.success("You have successfully logged out.")
         st.markdown(
            """
             <div style="text-align: center;">
@@ -534,7 +541,14 @@ def insert_to_supabase(input_data, model_type):
         except Exception as e:
             st.write(f"Error saat memasukkan data ke Supabase: {e}")
 
-        
+
+def logout():
+    """Log out the user by clearing session state."""
+    del st.session_state['logged_in']
+    del st.session_state['username']
+    del st.session_state['email']
+    st.success("You have been logged out!")
+
 # Main function to run Streamlit app
 def main():
     set_page_config()
