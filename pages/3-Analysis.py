@@ -199,51 +199,91 @@ def get_user_input_ml():
         "cdh1_mut": [cdh1_mut],
         "atr_mut": [atr_mut],
     })
+
 # Function to generate a PDF report and provide a download link
 def generate_pdf(input_data, result, model_type):
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
 
-    # Set up the title
-    pdf.set_font("Arial", "B", 16)
-    pdf.cell(0, 10, f"Prediction Report ({model_type})", 0, 1, 'C')
+    # Title Section
+    pdf.set_font("Times", "B", 18)
+    pdf.set_text_color(0, 51, 102)  # Set title color (dark blue)
+    pdf.cell(0, 10, f"Medical Prediction Report ({model_type})", 0, 1, 'C')
+    pdf.ln(10)
 
-    # Add patient name if present
+    # Header Section: Patient Information
+    pdf.set_font("Times", "B", 14)
+    pdf.set_text_color(0, 0, 0)  # Reset text color to black
+    pdf.cell(0, 10, "Patient Information", 0, 1)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())  # Line separator
+    pdf.ln(5)
+
+    # Patient Name
     patient_name = input_data.get("patient", "")
-    if patient_name:
-        pdf.set_font("Arial", "B", 14)
-        pdf.cell(0, 10, f"Patient Name: {patient_name}", 0, 1)
-    
-    # Add a section for user input data
-    pdf.set_font("Arial", "", 12)
-    pdf.ln(10)  # Add a line break
-    pdf.cell(0, 10, "User Input Data:", 0, 1)
-    pdf.set_font("Arial", "", 10)
+    pdf.set_font("Times", "", 12)
+    pdf.cell(50, 10, "Patient Name:", 0, 0)
+    pdf.cell(0, 10, f"{patient_name if patient_name else '[Not Provided]'}", 0, 1)
 
-    # Display each input data entry
+    # Date (Optional if needed)
+    pdf.cell(50, 10, "Report Date:", 0, 0)
+    pdf.cell(0, 10, f"{st.session_state.get('date', 'Not Provided')}", 0, 1)
+    pdf.ln(5)
+
+    # Clinical Data Section
+    pdf.set_font("Times", "B", 14)
+    pdf.cell(0, 10, "Data", 0, 1)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())  # Line separator
+    pdf.ln(5)
+
+    # Table Header
+    pdf.set_font("Times", "B", 12)
+    pdf.set_fill_color(230, 230, 230)  # Light grey background for header
+    pdf.cell(90, 10, "Parameter", 1, 0, 'C', fill=True)
+    pdf.cell(0, 10, "Value", 1, 1, 'C', fill=True)
+
+    # Clinical Data Table
+    pdf.set_font("Times", "", 12)
     for key, value in input_data.items():
-        if key != "patient":  # Avoid duplicating the patient field
-            pdf.cell(0, 10, f"{key}: {value[0] if isinstance(value, list) else value}", 0, 1)
+        if key != "patient":  # Skip the patient key
+            pdf.cell(90, 10, f"{key.replace('_', ' ').capitalize()}:", 1, 0, 'L')
+            pdf.cell(0, 10, f"{value[0] if isinstance(value, list) else value}", 1, 1, 'L')
 
-    # Add prediction result
-    pdf.ln(10)  # Add a line break
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "Prediction Result:", 0, 1)
-    pdf.cell(0, 10, f"Predicted Cancer Type: {result}", 0, 1)
+    pdf.ln(10)
+
+    # Prediction Result Section
+    pdf.set_font("Times", "B", 14)
+    pdf.cell(0, 10, "Prediction Result", 0, 1)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())  # Line separator
+    pdf.ln(5)
+    pdf.set_font("Times", "", 12)
+    pdf.set_text_color(34, 139, 34)  # Green color for prediction result
+    pdf.cell(50, 10, "Predicted Cancer Type:", 0, 0)
+    pdf.cell(0, 10, f"{result}", 0, 1)
+
+    # Reset text color to black
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(10)
+
+    # Footer Section
+    pdf.set_y(-30)  # Position footer 30mm from the bottom
+    pdf.set_font("Times", "I", 10)
+    pdf.cell(0, 10, "This is an auto-generated report based on provided clinical data.", 0, 1, 'C')
+    pdf.cell(0, 10, "For further evaluation, please consult with a medical professional.", 0, 1, 'C')
 
     # Create a BytesIO object to hold the PDF
     pdf_output = io.BytesIO()
     pdf.output(pdf_output)
     pdf_output.seek(0)
 
-    # Display download link
+    # Display download link in Streamlit
     st.download_button(
         label="Download PDF Report",
         data=pdf_output,
-        file_name="prediction_report.pdf",
+        file_name="medical_prediction_report.pdf",
         mime="application/pdf"
     )
+    
 def set_page_config():
     """Set the initial page configuration."""
     st.set_page_config(
@@ -337,7 +377,7 @@ def render_sidebar():
             """, unsafe_allow_html=True
         )
         # Language selection in the sidebar
-        language = st.selectbox('Choose your language / Pilih bahasa Anda', ['en', 'id'])
+        language = st.selectbox('Language/Bahasa', ['en', 'id'])
         st.session_state['language'] = language
 
 # def render_sidebar():

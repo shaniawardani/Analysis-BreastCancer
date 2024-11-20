@@ -215,7 +215,7 @@ def render_sidebar():
         )
         
         # Language selection in the sidebar
-        language = st.selectbox('Choose your language / Pilih bahasa Anda', ['en', 'id'])
+        language = st.selectbox('Language/Bahasa', ['en', 'id'])
         st.session_state['language'] = language
 
 

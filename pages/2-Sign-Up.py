@@ -116,7 +116,7 @@ def render_sidebar():
             """, unsafe_allow_html=True
         )
         # Language selection in the sidebar
-        language = st.selectbox('Choose your language / Pilih bahasa Anda', ['en', 'id'])
+        language = st.selectbox('Language/Bahasa', ['en', 'id'])
         st.session_state['language'] = language
 
 def hash_password(password):

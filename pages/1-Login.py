@@ -120,31 +120,9 @@ def render_sidebar():
             """, unsafe_allow_html=True
         )
         # Language selection in the sidebar
-        language = st.selectbox('Choose your language / Pilih bahasa Anda', ['en', 'id'])
+        language = st.selectbox('Language/Bahasa', ['en', 'id'])
         st.session_state['language'] = language
 
-
-# def authenticate_user(email, password):
-#     """Authenticate the user with Firebase."""
-#     try:
-#         user = auth.get_user_by_email(email)
-#         st.success("Login Successful!")
-#         return True
-#     except firebase_admin.exceptions.FirebaseError as e:
-#         st.error(f"Authentication failed: {e}")
-#         return False
-
-# def login_form():
-#     st.title("Login")
-#     email = st.text_input("Email")
-#     password = st.text_input("Password", type="password")
-
-#     if st.button("Login"):
-#         if authenticate_user(email, password):
-#             st.session_state['logged_in'] = True
-#             st.session_state['email'] = email
-#         else:
-#             st.error("Authentication failed! Please check your email and password.")
 
 def is_valid_email(email):
     # Define a regex pattern for validating an email
@@ -170,27 +148,6 @@ def login_form():
             st.switch_page("pages/3-Analysis.py")
         else:
             st.error("Invalid email or password")
-
-
-# # JWT secret
-# JWT_SECRET = "your_jwt_secret_here"  # Replace with an actual secret, or load from environment variables
-
-# # Generate a token
-# def generate_token(user_id):
-#     return jwt.encode({
-#         'user_id': user_id,
-#         'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-#     }, JWT_SECRET, algorithm="HS256")
-
-# # Decode a token
-# def decode_token(token):
-#     try:
-#         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-#         return payload
-#     except jwt.ExpiredSignatureError:
-#         return None  # Token expired
-#     except jwt.InvalidTokenError:
-#         return None  # Invalid token
 
 def verify_password(password, hashed):
     return bcrypt.checkpw(password.encode(), hashed.encode())
