@@ -8,35 +8,39 @@ import jwt
 from dotenv import load_dotenv
 
 
-load_dotenv()
-
-# Configure Supabase
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-JWT_SECRET = os.getenv("JWT_SECRET")  # Load JWT secret from environment variables
-
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise EnvironmentError("SUPABASE_URL or SUPABASE_KEY is not set in .env file or environment variables.")
-
-
+SUPABASE_URL = 'https://mylvpdlslvkpuhepzjpw.supabase.co'
+SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15bHZwZGxzbHZrcHVoZXB6anB3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczMDk3NzkxNSwiZXhwIjoyMDQ2NTUzOTE1fQ.iwA7KbFFy-foQ8QJ-lZu6ylzMMiIElvesVpZsKaB4Tk'
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Generate a token
-def generate_token(email):
-    return jwt.encode({
-        'user_id': email,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-    }, JWT_SECRET, algorithm="HS256")
+# load_dotenv()
 
-# Decode a token
-def decode_token(token):
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        return payload
-    except jwt.ExpiredSignatureError:
-        return {"error": "Refresh token expired"}, 401
-    except jwt.InvalidTokenError:
-        return {"error": "Invalid refresh token"}, 401
+# # Configure Supabase
+# SUPABASE_URL = os.getenv("SUPABASE_URL")
+# SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+# JWT_SECRET = os.getenv("JWT_SECRET")  # Load JWT secret from environment variables
+
+# if not SUPABASE_URL or not SUPABASE_KEY:
+#     raise EnvironmentError("SUPABASE_URL or SUPABASE_KEY is not set in .env file or environment variables.")
+
+
+# supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# # Generate a token
+# def generate_token(email):
+#     return jwt.encode({
+#         'user_id': email,
+#         'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+#     }, JWT_SECRET, algorithm="HS256")
+
+# # Decode a token
+# def decode_token(token):
+#     try:
+#         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+#         return payload
+#     except jwt.ExpiredSignatureError:
+#         return {"error": "Refresh token expired"}, 401
+#     except jwt.InvalidTokenError:
+#         return {"error": "Invalid refresh token"}, 401
 
 def set_page_config():
     """Set the initial page configuration."""
@@ -46,6 +50,7 @@ def set_page_config():
         layout="wide",
         initial_sidebar_state="expanded",
     )
+
 
 def inject_custom_css():
     """Inject custom CSS for styling."""
