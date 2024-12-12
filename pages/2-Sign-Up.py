@@ -6,9 +6,9 @@ import datetime
 import os
 import logging
 from datetime import datetime, timezone
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
-load_dotenv()
+# load_dotenv()
 
 # Configure Supabase
 SUPABASE_URL = 'https://mylvpdlslvkpuhepzjpw.supabase.co'

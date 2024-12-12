@@ -13,7 +13,7 @@ from supabase import create_client, Client
 from datetime import datetime, timezone
 from fpdf import FPDF
 import io
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
 
 # Define the folder paths
@@ -30,11 +30,11 @@ SUPABASE_URL = 'https://mylvpdlslvkpuhepzjpw.supabase.co'
 SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15bHZwZGxzbHZrcHVoZXB6anB3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczMDk3NzkxNSwiZXhwIjoyMDQ2NTUzOTE1fQ.iwA7KbFFy-foQ8QJ-lZu6ylzMMiIElvesVpZsKaB4Tk'
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)  # Load JWT secret from environment variables
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise EnvironmentError("SUPABASE_URL or SUPABASE_KEY is not set in .env file or environment variables.")
+# if not SUPABASE_URL or not SUPABASE_KEY:
+#     raise EnvironmentError("SUPABASE_URL or SUPABASE_KEY is not set in .env file or environment variables.")
 
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # Load Machine Learning model and preprocessing components
 
 # Memuat kembali model dan preprocessing tools

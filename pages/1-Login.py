@@ -5,7 +5,7 @@ import os
 import re
 import datetime
 import jwt
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
 
 SUPABASE_URL = 'https://mylvpdlslvkpuhepzjpw.supabase.co'
