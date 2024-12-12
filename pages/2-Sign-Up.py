@@ -5,11 +5,42 @@ import jwt
 import datetime
 import os
 import logging
+from datetime import datetime, timezone
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Configure Supabase
-SUPABASE_URL = 'https://mylvpdlslvkpuhepzjpw.supabase.co'
-SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15bHZwZGxzbHZrcHVoZXB6anB3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczMDk3NzkxNSwiZXhwIjoyMDQ2NTUzOTE1fQ.iwA7KbFFy-foQ8QJ-lZu6ylzMMiIElvesVpZsKaB4Tk'
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+JWT_SECRET = os.getenv("JWT_SECRET")  # Load JWT secret from environment variables
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise EnvironmentError("SUPABASE_URL or SUPABASE_KEY is not set in .env file or environment variables.")
+
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# Translation dictionary
+translations = {
+    'en': {
+        'signup': 'Sign Up',
+        'email': 'Email',
+        'username': 'Username',
+        'password': 'Password',
+        'invalid_email': "Please use an email that ends with '@gmail.com'",
+        'create_account_error': 'Error creating account: ',
+        'account_created': 'Account created successfully!',
+    },
+    'id': {
+        'signup': 'Daftar',
+        'email': 'Email',
+        'username': 'Nama Pengguna',
+        'password': 'Kata Sandi',
+        'invalid_email': "Silakan gunakan email yang diakhiri dengan '@gmail.com'",
+        'create_account_error': 'Gagal membuat akun: ',
+        'account_created': 'Akun berhasil dibuat!',
+    }
+}
 
 def set_page_config():
     """Set the initial page configuration."""
@@ -125,65 +156,55 @@ def hash_password(password):
 def verify_password(password, hashed):
     return bcrypt.checkpw(password.encode(), hashed.encode())
 
-#
 def is_user_exists(username, email):
-    # Check if username or email already exists in the users table
     response = supabase.from_('user').select("id").or_(
         f"username.eq.{username},email.eq.{email}"
     ).execute()
-    
-    # If data is returned, it means a matching user was found
     return bool(response.data)
 
-#
 def signup(email, username, password):
-    # Check if username or email already exists
     if is_user_exists(username, email):
         return None, "Username or email already exists."
-
-    # Hash the password securely
+    
     hashed_password = hash_password(password)
-
-    # Attempt to insert the new user into the database
     try:
+        timestamp = datetime.now(timezone.utc).isoformat()
         response = supabase.from_('user').insert({
             'email': email,
             'username': username,
             'password': hashed_password
         }).execute()
 
-        # Check if the insert was successful
         if response.data:
             return response.data, None
         else:
-            # Handle specific error codes, e.g., duplicate key for username
             error_code = response.get("code")
             if error_code == '23505':  # Unique constraint violation
                 return None, "Username or email already exists."
             else:
-                # Log and return a generic error message to the user
                 logging.error(f"Failed to insert user data: {response}")
                 return None, "Failed to create account. Please try again later."
     except Exception as e:
-        # Log the error for developers and return a generic message to the user
         logging.exception("An unexpected error occurred during signup.")
         return None, "An unexpected error occurred. Please try again later."
 
 def signup_form():
-    st.title("Sign Up")
-    email = st.text_input("Email")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+    # Use translation based on selected language
+    text = translations.get(st.session_state.get('language', 'en'))
 
-    # Check if the email ends with "@gmail.com"
+    st.title(text['signup'])
+    email = st.text_input(text['email'])
+    username = st.text_input(text['username'])
+    password = st.text_input(text['password'], type="password")
+
     if email and not email.endswith("@gmail.com"):
-        st.error("Please use an email that ends with '@gmail.com'")
-    elif st.button("Sign Up"):
+        st.error(text['invalid_email'])
+    elif st.button(text['signup']):
         data, error = signup(email, username, password)
         if error:
-            st.error(f"Error creating account: {error}")
+            st.error(f"{text['create_account_error']}{error}")
         else:
-            st.success("Account created successfully!")
+            st.success(text['account_created'])
             st.markdown(
                 "<meta http-equiv='refresh' content='0; url=/Login'>",
                 unsafe_allow_html=True

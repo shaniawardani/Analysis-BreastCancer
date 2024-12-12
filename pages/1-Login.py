@@ -1,12 +1,42 @@
 import streamlit as st
 from supabase import create_client, Client
 import bcrypt
+import os
 import re
+import datetime
+import jwt
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 # Configure Supabase
-SUPABASE_URL = 'https://mylvpdlslvkpuhepzjpw.supabase.co'
-SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15bHZwZGxzbHZrcHVoZXB6anB3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczMDk3NzkxNSwiZXhwIjoyMDQ2NTUzOTE1fQ.iwA7KbFFy-foQ8QJ-lZu6ylzMMiIElvesVpZsKaB4Tk'
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+JWT_SECRET = os.getenv("JWT_SECRET")  # Load JWT secret from environment variables
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise EnvironmentError("SUPABASE_URL or SUPABASE_KEY is not set in .env file or environment variables.")
+
+
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# Generate a token
+def generate_token(email):
+    return jwt.encode({
+        'user_id': email,
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+    }, JWT_SECRET, algorithm="HS256")
+
+# Decode a token
+def decode_token(token):
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        return payload
+    except jwt.ExpiredSignatureError:
+        return {"error": "Refresh token expired"}, 401
+    except jwt.InvalidTokenError:
+        return {"error": "Invalid refresh token"}, 401
 
 def set_page_config():
     """Set the initial page configuration."""
@@ -102,16 +132,30 @@ def inject_custom_css():
         unsafe_allow_html=True,
     )
 
+translations = {
+    'en': {
+        'login': 'Login',
+        'email': 'Email',
+        'password': 'Password',
+        'invalid_email': 'Invalid email format. Please enter a valid email address.',
+        'login_success': 'Login successful!',
+        'invalid_credentials': 'Invalid email or password',
+        'welcome': 'Welcome, ',
+    },
+    'id': {
+        'login': 'Masuk',
+        'email': 'Email',
+        'password': 'Kata Sandi',
+        'invalid_email': 'Format email tidak valid. Silakan masukkan alamat email yang valid.',
+        'login_success': 'Masuk berhasil!',
+        'invalid_credentials': 'Email atau kata sandi salah',
+        'welcome': 'Selamat datang, ',
+    }
+}
+
 def render_sidebar():
     """Render the sidebar with navigation."""
     with st.sidebar:
-        # if st.button("Logout"):
-        #     # Hapus semua data di session_state (opsional)
-        #     for key in st.session_state.keys():
-        #         del st.session_state[key]
-        #     # Beri konfirmasi logout (opsional)
-        #     st.switch_page("Dashboard.py")  # Redirect ke halaman login (jika ada sistem multi-halaman)
-        #     st.success("You have successfully logged out.")
         st.markdown(
            """
             <div style="text-align: center;">
@@ -132,22 +176,22 @@ def is_valid_email(email):
     return False
 
 def login_form():
-    st.title("Login")
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
+    st.title(translations[st.session_state.get('language', 'en')]['login'])
+    email = st.text_input(translations[st.session_state.get('language', 'en')]['email'])
+    password = st.text_input(translations[st.session_state.get('language', 'en')]['password'], type="password")
 
     # Email validation
     if email and not is_valid_email(email):
-        st.error("Invalid email format. Please enter a valid email address.")
+        st.error(translations[st.session_state.get('language', 'en')]['invalid_email'])
 
-    if st.button("Login"):
+    if st.button(translations[st.session_state.get('language', 'en')]['login']):
         if login(email, password):
             st.session_state['logged_in'] = True  
             st.session_state['email'] = email 
-            st.success("Login successful!")
+            st.success(translations[st.session_state.get('language', 'en')]['login_success'])
             st.switch_page("pages/3-Analysis.py")
         else:
-            st.error("Invalid email or password")
+            st.error(translations[st.session_state.get('language', 'en')]['invalid_credentials'])
 
 def verify_password(password, hashed):
     return bcrypt.checkpw(password.encode(), hashed.encode())
@@ -162,32 +206,20 @@ def login(email, password):
             
     return False
 
-# def logout():
-#     """Log out the user by clearing session state."""
-#     del st.session_state['logged_in']
-#     del st.session_state['username']
-#     del st.session_state['email']
-#     st.success("You have been logged out!")
-
 def main():
     inject_custom_css()
     render_sidebar()
-
     
+    # Get the translation dictionary for the selected language
+    text = translations[st.session_state.get('language', 'en')]
+
     if 'logged_in' not in st.session_state:
         st.session_state['logged_in'] = False
 
     if st.session_state['logged_in']:
-        #st.write("Welcome to the dashboard!")
-        st.write(f"Welcome, {st.session_state['username']}!")
-
-         # Add a Center logout button 
-        # if st.button("Log Out"):
-        #     logout()
-        #     st.session_state['logged_in'] = False  # Set to False so it will show login form again
-        #     #st.rerun()  # Refresh the app to go back to login form
-        #     st.switch_page("Dashboard.py")
-    else:        
+        st.write(f"{text['welcome']}{st.session_state['username']}!")
+    else:
+        st.write()
         login_form()
 
 if __name__ == '__main__':

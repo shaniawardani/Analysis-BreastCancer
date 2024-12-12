@@ -1,4 +1,3 @@
-
 import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 import streamlit as st
@@ -14,6 +13,8 @@ from supabase import create_client, Client
 from datetime import datetime, timezone
 from fpdf import FPDF
 import io
+from dotenv import load_dotenv
+
 
 # Define the folder paths
 folderML = 'hasil/ML'
@@ -22,11 +23,18 @@ folderDL = 'hasil/DL'
 # Suppress specific TensorFlow/Keras warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='tensorflow')
 
-# Supabase configuration
-SUPABASE_URL = 'https://mylvpdlslvkpuhepzjpw.supabase.co'
-SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15bHZwZGxzbHZrcHVoZXB6anB3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczMDk3NzkxNSwiZXhwIjoyMDQ2NTUzOTE1fQ.iwA7KbFFy-foQ8QJ-lZu6ylzMMiIElvesVpZsKaB4Tk'
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+load_dotenv()
 
+# Configure Supabase
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+JWT_SECRET = os.getenv("JWT_SECRET")  # Load JWT secret from environment variables
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise EnvironmentError("SUPABASE_URL or SUPABASE_KEY is not set in .env file or environment variables.")
+
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # Load Machine Learning model and preprocessing components
 
 # Memuat kembali model dan preprocessing tools
@@ -51,10 +59,6 @@ label_encoder = joblib.load(label_encoder_path)  # Memuat label encoder
 scaler = joblib.load(scaler_path)  # Memuat StandardScaler
 ohe_encoder = joblib.load(ohe_encoder_path)  # Memuat OneHotEncoder
 
-# Load best features list for ML
-# with open(os.path.join(folderML, 'featuresANN_final.json'), 'r') as f:
-#     best_features = json.load(f)
-
 # Load Deep Learning model
 dl_model = load_model(os.path.join(folderDL, 'model_dnn7032.h5'))
 dl_model.compile(optimizer='adam', loss='mse', metrics=['accuracy'])
@@ -66,6 +70,7 @@ mutation_encoder.fit(ahnak2_mutenc)
 categorical_cols = ['oncotree_code', 'chemotherapy', 'tumor_other_histologic_subtype', 
                         'ahnak2_mut', 'kmt2d_mut', 'stab2_mut', 'pde4dip_mut', 'map3k1_mut', 
                         'muc16_mut', 'cdh1_mut', 'atr_mut']
+
 # Preprocess and adjust input data to match model input
 def ml_prediction(input_data):
     # Pastikan input_data adalah DataFrame
@@ -208,7 +213,7 @@ def generate_pdf(input_data, result, model_type):
 
     # Title Section
     pdf.set_font("Times", "B", 18)
-    pdf.set_text_color(0, 51, 102)  # Set title color (dark blue)
+    pdf.set_text_color("#A65277") 
     pdf.cell(0, 10, f"Medical Prediction Report ({model_type})", 0, 1, 'C')
     pdf.ln(10)
 
@@ -225,10 +230,12 @@ def generate_pdf(input_data, result, model_type):
     pdf.cell(50, 10, "Patient Name:", 0, 0)
     pdf.cell(0, 10, f"{patient_name if patient_name else '[Not Provided]'}", 0, 1)
 
-    # Date (Optional if needed)
-    pdf.cell(50, 10, "Report Date:", 0, 0)
-    pdf.cell(0, 10, f"{st.session_state.get('date', 'Not Provided')}", 0, 1)
-    pdf.ln(5)
+    
+
+    # # Date
+    # pdf.cell(50, 10, "Report Date:", 0, 0)
+    # pdf.cell(0, 10, f"{st.session_state.get('date', 'Not Provided')}", 0, 1)
+    # pdf.ln(5)
 
     # Clinical Data Section
     pdf.set_font("Times", "B", 14)
@@ -257,7 +264,7 @@ def generate_pdf(input_data, result, model_type):
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())  # Line separator
     pdf.ln(5)
     pdf.set_font("Times", "", 12)
-    pdf.set_text_color(34, 139, 34)  # Green color for prediction result
+    pdf.set_text_color("#8A2C52")  # Green color for prediction result
     pdf.cell(50, 10, "Predicted Cancer Type:", 0, 0)
     pdf.cell(0, 10, f"{result}", 0, 1)
 
@@ -265,11 +272,11 @@ def generate_pdf(input_data, result, model_type):
     pdf.set_text_color(0, 0, 0)
     pdf.ln(10)
 
-    # Footer Section
-    pdf.set_y(-30)  # Position footer 30mm from the bottom
-    pdf.set_font("Times", "I", 10)
-    pdf.cell(0, 10, "This is an auto-generated report based on provided clinical data.", 0, 1, 'C')
-    pdf.cell(0, 10, "For further evaluation, please consult with a medical professional.", 0, 1, 'C')
+    # # Footer Section
+    # pdf.set_y(-30)  # Position footer 30mm from the bottom
+    # pdf.set_font("Times", "I", 10)
+    # pdf.cell(0, 10, "This is an auto-generated report based on provided clinical data.", 0, 1, 'C')
+    # pdf.cell(0, 10, "For further evaluation, please consult with a medical professional.", 0, 1, 'C')
 
     # Create a BytesIO object to hold the PDF
     pdf_output = io.BytesIO()
@@ -311,7 +318,7 @@ def inject_custom_css():
 
         /* Styling for form header */
         .form-header-container {
-            background-color: #A65277;
+            background-color: #8A2C52;
             border-radius: 15px;
             padding: 20px 0;
             width: 90%;
@@ -379,17 +386,6 @@ def render_sidebar():
         # Language selection in the sidebar
         language = st.selectbox('Language/Bahasa', ['en', 'id'])
         st.session_state['language'] = language
-
-# def render_sidebar():
-#     """Render the sidebar with navigation."""
-#     with st.sidebar:
-
-#         # Language selection in the sidebar
-#         language = st.selectbox('Choose your language / Pilih bahasa Anda', ['en', 'id'])
-#         st.session_state['language'] = language
-
-#           # Add a spacer
-#         st.markdown("<hr style='margin: 20px 0;'>", unsafe_allow_html=True)
 
 
 # Function to handle Deep Learning prediction
@@ -509,13 +505,6 @@ def insert_to_supabase(input_data, model_type):
    
     # Prepare data to insert into the Supabase table
     if model_type == 'ML':
-        # if isinstance(input_data, pd.DataFrame):
-        #     input_data = input_data.to_dict(orient="records")[0]  # Ambil baris pertama jika hanya satu
-
-        # timestamp = datetime.now(timezone.utc).isoformat()
-        # patient = input_data.get("patient", "unknown_patient")
-        # input_data['prediction'] = input_data.get('prediction', 'Unknown')  # Default to 'Unknown' if not present
-
         data = {
             "patient": patient,  # Add patient_id
             "neoplasm_histologic_grade": input_data["neoplasm_histologic_grade"],
@@ -588,6 +577,7 @@ def logout():
     del st.session_state['username']
     del st.session_state['email']
     st.success("You have been logged out!")
+
 
 # Main function to run Streamlit app
 def main():
