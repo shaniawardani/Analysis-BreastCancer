@@ -172,7 +172,8 @@ def signup(email, username, password):
         response = supabase.from_('user').insert({
             'email': email,
             'username': username,
-            'password': hashed_password
+            'password': hashed_password,
+            'created_at': timestamp
         }).execute()
 
         if response.data:
