@@ -16,6 +16,32 @@ import io
 # from dotenv import load_dotenv
 
 
+# translations = {
+#     'en': {
+#         'welcome': 'Welcome, ',
+#         'choose_method': 'Choose Prediction Method:',
+#         'machine_learning': 'Machine Learning',
+#         'deep_learning': 'Deep Learning',
+#         'prediction_title': 'Prediction Cancer Type Using - ',
+#         'patient_name': 'Patient Name',
+#         'submit': 'Submit',
+#         'data_inserted': 'Data Inserted!',
+#         'download_pdf': 'Download PDF Report',
+#     },
+#     'id': {
+#         'welcome': 'Selamat datang, ',
+#         'choose_method': 'Pilih Metode Prediksi:',
+#         'machine_learning': 'Pembelajaran Mesin',
+#         'deep_learning': 'Pembelajaran Mendalam',
+#         'prediction_title': 'Prediksi Jenis Kanker Menggunakan - ',
+#         'patient_name': 'Nama Pasien',
+#         'submit': 'Kirim',
+#         'data_inserted': 'Data Dimasukkan!',
+#         'download_pdf': 'Unduh Laporan PDF',
+#     }
+# }
+
+
 # Define the folder paths
 folderML = 'hasil/ML'
 folderDL = 'hasil/DL'
@@ -297,7 +323,7 @@ def set_page_config():
         page_icon="",
         page_title="Breast Cancer Analysis",
         layout="wide",
-        initial_sidebar_state="expanded",
+        initial_sidebar_state="collapsed",
     )
 def inject_custom_css():
     """Inject custom CSS for styling."""
@@ -585,12 +611,15 @@ def main():
     inject_custom_css()
     render_sidebar()
 
+    # text = translations[st.session_state.get('language', 'en')]
+
     if not st.session_state.get('logged_in', False):
         st.write("Please login first!")
         return
 
     if st.session_state['logged_in']:
         st.write(f"Welcome, {st.session_state['username']}!")
+        
         
         # Radio button for selecting model
         model_choice = st.radio("Choose Prediction Methode:", ('Machine Learning', 'Deep Learning'))
