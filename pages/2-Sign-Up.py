@@ -6,19 +6,23 @@ import datetime
 import os
 import logging
 from datetime import datetime, timezone
+from pytz import timezone
 # from dotenv import load_dotenv
 
 # load_dotenv()
 
-# Configure Supabase
-SUPABASE_URL = 'https://mylvpdlslvkpuhepzjpw.supabase.co'
-SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15bHZwZGxzbHZrcHVoZXB6anB3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczMDk3NzkxNSwiZXhwIjoyMDQ2NTUzOTE1fQ.iwA7KbFFy-foQ8QJ-lZu6ylzMMiIElvesVpZsKaB4Tk'
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) # Load JWT secret from environment variables
+# # Configure Supabase
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+JWT_SECRET = st.secrets["JWT_SECRET"] 
 
-# if not SUPABASE_URL or not SUPABASE_KEY:
-#     raise EnvironmentError("SUPABASE_URL or SUPABASE_KEY is not set in .env file or environment variables.")
+if not SUPABASE_URL or not SUPABASE_KEY or not JWT_SECRET:
+     raise EnvironmentError("SUPABASE_URL or SUPABASE_KEY is not set in .env file or environment variables.")
 
-# supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
 
 # Translation dictionary
 translations = {
@@ -168,7 +172,8 @@ def signup(email, username, password):
     
     hashed_password = hash_password(password)
     try:
-        timestamp = datetime.now(timezone.utc).isoformat()
+        local_tz = timezone('Asia/Jakarta')
+        timestamp = datetime.now(local_tz).isoformat()
         response = supabase.from_('user').insert({
             'email': email,
             'username': username,

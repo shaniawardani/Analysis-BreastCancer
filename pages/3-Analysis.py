@@ -13,34 +13,41 @@ from supabase import create_client, Client
 from datetime import datetime, timezone
 from fpdf import FPDF
 import io
-# from dotenv import load_dotenv
+from pytz import timezone
 
-
-# translations = {
-#     'en': {
-#         'welcome': 'Welcome, ',
-#         'choose_method': 'Choose Prediction Method:',
-#         'machine_learning': 'Machine Learning',
-#         'deep_learning': 'Deep Learning',
-#         'prediction_title': 'Prediction Cancer Type Using - ',
-#         'patient_name': 'Patient Name',
-#         'submit': 'Submit',
-#         'data_inserted': 'Data Inserted!',
-#         'download_pdf': 'Download PDF Report',
-#     },
-#     'id': {
-#         'welcome': 'Selamat datang, ',
-#         'choose_method': 'Pilih Metode Prediksi:',
-#         'machine_learning': 'Pembelajaran Mesin',
-#         'deep_learning': 'Pembelajaran Mendalam',
-#         'prediction_title': 'Prediksi Jenis Kanker Menggunakan - ',
-#         'patient_name': 'Nama Pasien',
-#         'submit': 'Kirim',
-#         'data_inserted': 'Data Dimasukkan!',
-#         'download_pdf': 'Unduh Laporan PDF',
-#     }
-# }
-
+# Translations dictionary
+translations = {
+    'en': {
+        'welcome': 'Welcome, ',
+        'choose_method': 'Choose Prediction Method:',
+        'machine_learning': 'Machine Learning',
+        'deep_learning': 'Deep Learning',
+        'prediction_title': 'Prediction Cancer Type Using - ',
+        'patient_name': 'Patient Name',
+        'submit': 'Submit',
+        'data_inserted': 'Data Inserted!',
+        'download_pdf': 'Download PDF Report',
+        'patient_warning': 'Patient name must be provided before continuing.',
+        'logout': 'Logout',
+        'language': 'Language/Bahasa',
+        'login_first': 'Please login first!',
+    },
+    'id': {
+        'welcome': 'Selamat datang, ',
+        'choose_method': 'Pilih Metode Prediksi:',
+        'machine_learning': 'Machine Learning',
+        'deep_learning': 'Deep Learning',
+        'prediction_title': 'Prediksi Jenis Kanker Menggunakan - ',
+        'patient_name': 'Nama Pasien',
+        'submit': 'Kirim',
+        'data_inserted': 'Data Berhasil Dimasukkan!',
+        'download_pdf': 'Unduh Laporan PDF',
+        'patient_warning': 'Nama pasien harus diisi sebelum melanjutkan.',
+        'logout': 'Keluar',
+        'language': 'Bahasa',
+        'login_first': 'Silakan login terlebih dahulu!',
+    }
+}
 
 # Define the folder paths
 folderML = 'hasil/ML'
@@ -51,17 +58,16 @@ warnings.filterwarnings('ignore', category=UserWarning, module='tensorflow')
 
 # load_dotenv()
 
-# Configure Supabase
-SUPABASE_URL = 'https://mylvpdlslvkpuhepzjpw.supabase.co'
-SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15bHZwZGxzbHZrcHVoZXB6anB3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczMDk3NzkxNSwiZXhwIjoyMDQ2NTUzOTE1fQ.iwA7KbFFy-foQ8QJ-lZu6ylzMMiIElvesVpZsKaB4Tk'
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)  # Load JWT secret from environment variables
+# # Configure Supabase
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+JWT_SECRET = st.secrets["JWT_SECRET"] 
 
-# if not SUPABASE_URL or not SUPABASE_KEY:
-#     raise EnvironmentError("SUPABASE_URL or SUPABASE_KEY is not set in .env file or environment variables.")
+if not SUPABASE_URL or not SUPABASE_KEY or not JWT_SECRET:
+     raise EnvironmentError("SUPABASE_URL or SUPABASE_KEY is not set in .env file or environment variables.")
 
 
-# supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-# Load Machine Learning model and preprocessing components
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Memuat kembali model dan preprocessing tools
 model_path = os.path.join(folderML, 'breast_cancer_model.h5')
@@ -126,9 +132,23 @@ def ml_prediction(input_data):
 
 # Function to get user input for Machine Learning model
 def get_user_input_ml():
-    st.title('Prediction Cancer Type Using - Machine Learning')
+    # st.title('Prediction Cancer Type Using - Machine Learning')
 
-    patient = st.text_input("Patient Name")
+    # text = translations[st.session_state.get('language', 'en')]
+
+    st.title(f"{text('prediction_title')}{text('machine_learning')}")
+
+     # patient = st.text_input("Patient Name")
+    patient = st.text_input(text('patient_name'))
+
+    if not patient.strip():
+        st.warning(text('patient_warning'))
+        return None
+
+    if not patient.strip():
+        st.warning("Nama pasien harus diisi sebelum melanjutkan.")
+        return None
+
     # Slider for each kolom with min value and max value from Dataset training
     neoplasm_histologic_grade = st.slider('Neoplasm Histologic Grade', 1.0000, 3.0000, 1.0000)
     aurka = st.slider('AURKA', -2.27, 4.82, 0.0)
@@ -231,8 +251,8 @@ def get_user_input_ml():
         "atr_mut": [atr_mut],
     })
 
-# Function to generate a PDF report and provide a download link
 def generate_pdf(input_data, result, model_type):
+    # Function to generate a PDF report and provide a download link
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
@@ -256,12 +276,6 @@ def generate_pdf(input_data, result, model_type):
     pdf.cell(50, 10, "Patient Name:", 0, 0)
     pdf.cell(0, 10, f"{patient_name if patient_name else '[Not Provided]'}", 0, 1)
 
-    
-
-    # # Date
-    # pdf.cell(50, 10, "Report Date:", 0, 0)
-    # pdf.cell(0, 10, f"{st.session_state.get('date', 'Not Provided')}", 0, 1)
-    # pdf.ln(5)
 
     # Clinical Data Section
     pdf.set_font("Times", "B", 14)
@@ -298,24 +312,25 @@ def generate_pdf(input_data, result, model_type):
     pdf.set_text_color(0, 0, 0)
     pdf.ln(10)
 
-    # # Footer Section
-    # pdf.set_y(-30)  # Position footer 30mm from the bottom
-    # pdf.set_font("Times", "I", 10)
-    # pdf.cell(0, 10, "This is an auto-generated report based on provided clinical data.", 0, 1, 'C')
-    # pdf.cell(0, 10, "For further evaluation, please consult with a medical professional.", 0, 1, 'C')
-
     # Create a BytesIO object to hold the PDF
     pdf_output = io.BytesIO()
-    pdf.output(pdf_output)
+    pdf_bytes = pdf.output(dest='S')  # Output PDF as bytearray  # Output PDF as bytes (latin1 encoding)
+    pdf_output.write(pdf_bytes)
     pdf_output.seek(0)
+
 
     # Display download link in Streamlit
     st.download_button(
-        label="Download PDF Report",
-        data=pdf_output,
-        file_name="medical_prediction_report.pdf",
-        mime="application/pdf"
-    )
+    label="Download PDF Report",
+    data=pdf_output,
+    file_name="medical_prediction_report.pdf",
+    mime="application/pdf"
+)
+    
+
+def text(key):
+    language = st.session_state.get('language', 'en')  # Default ke 'en'
+    return translations[language].get(key, key)
     
 def set_page_config():
     """Set the initial page configuration."""
@@ -467,12 +482,18 @@ def dl_prediction(input_data):
     
 # Function to get user input for DL model
 def get_user_input_dl():
-    st.title('Prediction Cancer Type Using - Deep Learning')
 
+    # text = translations[st.session_state.get('language', 'en')]
+
+    st.title(f"{text('prediction_title')}{text('deep_learning')}")
+
+     # patient = st.text_input("Patient Name")
+    patient = st.text_input(text('patient_name'))
+
+    if not patient.strip():
+        st.warning(text('patient_warning'))
+        return None
     # Define input fields for each feature
-
-    # Collect patient ID (this could be from a form or another input source)
-    patient = st.text_input("Enter Patient Name")
 
     # Tumor other histologic Input sorted
     tumor_other_histologic_options=['Ductal/NST', 'Mixed', 'Lobular', 'Tubular/ cribriform', 'Mucinous', 'Medullary', 'Other', 'Unknown', 'Metaplastic']
@@ -525,7 +546,8 @@ def insert_to_supabase(input_data, model_type):
     if isinstance(input_data, pd.DataFrame):
         input_data = input_data.to_dict(orient="records")[0]  # Ambil baris pertama jika hanya satu
 
-    timestamp = datetime.now(timezone.utc).isoformat()
+    local_tz = timezone('Asia/Jakarta')
+    timestamp = datetime.now(local_tz).isoformat()
     patient = input_data.get("patient", "unknown_patient")
     input_data['prediction'] = input_data.get('prediction', 'Unknown')  # Default to 'Unknown' if not present
    
@@ -618,11 +640,11 @@ def main():
         return
 
     if st.session_state['logged_in']:
-        st.write(f"Welcome, {st.session_state['username']}!")
+        st.write(f"{text('welcome')}{st.session_state.get('username', '')}!")
         
         
         # Radio button for selecting model
-        model_choice = st.radio("Choose Prediction Methode:", ('Machine Learning', 'Deep Learning'))
+        model_choice = st.radio(text('choose_method'), (text('machine_learning'), text('deep_learning')))
 
         # Get user input
         if model_choice == 'Machine Learning':
@@ -634,7 +656,7 @@ def main():
 
                 # Insert data into Supabase
                 insert_to_supabase(input_data, model_type='ML')
-                st.write(f"Data Inserted")
+                st.write(text('data_inserted'))
                 # Generate PDF report
                 generate_pdf(input_data.iloc[0].to_dict(), result, model_type='Machine Learning')
 
@@ -649,10 +671,12 @@ def main():
              
                 # Insert data into Supabase
                 insert_to_supabase(input_data, model_type='DL')
-                st.write(f"Data Inserted")
+                st.write(text('data_inserted'))
                 # Generate PDF report
                 generate_pdf(input_data, result, model_type='Deep Learning')
 
 
+
 if __name__ == "__main__":
     main()
+
