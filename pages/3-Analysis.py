@@ -3,8 +3,6 @@ os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 import streamlit as st
 import numpy as np
 import pandas as pd
-import joblib
-import warnings
 import tensorflow as tf
 from keras.models import load_model # type: ignore
 from sklearn.preprocessing import LabelEncoder
@@ -20,8 +18,8 @@ translations = {
     'en': {
         'welcome': 'Welcome, ',
         'choose_method': 'Choose Prediction Method:',
-        'machine_learning': 'Machine Learning',
-        'deep_learning': 'Deep Learning',
+        'machine_learning': '30 Features',
+        'deep_learning': '6 Features',
         'prediction_title': 'Prediction Cancer Type Using - ',
         'patient_name': 'Patient Name',
         'submit': 'Submit',
@@ -53,10 +51,6 @@ translations = {
 folderML = 'hasil/ML'
 folderDL = 'hasil/DL'
 
-# Suppress specific TensorFlow/Keras warnings
-warnings.filterwarnings('ignore', category=UserWarning, module='tensorflow')
-
-# load_dotenv()
 
 # # Configure Supabase
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
@@ -69,32 +63,33 @@ if not SUPABASE_URL or not SUPABASE_KEY or not JWT_SECRET:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# Load categories from JSON file
+ohe_json_path = 'hasil/ML/ann.json'  # Sesuaikan path jika perlu
+
+try:
+    with open(ohe_json_path, 'r') as json_file:
+        ohe_categories = json.load(json_file)
+except FileNotFoundError:
+    st.error(f"File JSON '{ohe_json_path}' tidak ditemukan.")
+    ohe_categories = {}
+
+
+# Load Machine Learning model and preprocessing components
+
 # Memuat kembali model dan preprocessing tools
-model_path = os.path.join(folderML, 'breast_cancer_model.h5')
-label_encoder_path = os.path.join(folderML, 'label_encoder.pkl')
-scaler_path = os.path.join(folderML, 'scaler.pkl')
-ohe_encoder_path = os.path.join(folderML, 'ohe_encoder.pkl')
+ml_model_path = os.path.join(folderML, 'model_ann10064.h5')
 
 # Pastikan file dan folder ada sebelum memuat
-if not os.path.exists(model_path):
-    st.error(f"Model file '{model_path}' tidak ditemukan.")
-if not os.path.exists(label_encoder_path):
-    st.error(f"Label encoder file '{label_encoder_path}' tidak ditemukan.")
-if not os.path.exists(scaler_path):
-    st.error(f"Scaler file '{scaler_path}' tidak ditemukan.")
-if not os.path.exists(ohe_encoder_path):
-    st.error(f"OneHotEncoder file '{ohe_encoder_path}' tidak ditemukan.")
+if not os.path.exists(ml_model_path):
+    st.error(f"Model file '{ml_model_path}' tidak ditemukan.")
 
 # Memuat model, label encoder, scaler, dan OneHotEncoder
-model = tf.keras.models.load_model(model_path)  # Memuat model
-label_encoder = joblib.load(label_encoder_path)  # Memuat label encoder
-scaler = joblib.load(scaler_path)  # Memuat StandardScaler
-ohe_encoder = joblib.load(ohe_encoder_path)  # Memuat OneHotEncoder
+ml_model = tf.keras.models.load_model(ml_model_path)  # Memuat model
 
 # Load Deep Learning model
 dl_model = load_model(os.path.join(folderDL, 'model_dnn7032.h5'))
 dl_model.compile(optimizer='adam', loss='mse', metrics=['accuracy'])
-ahnak2_mutenc = ohe_encoder.categories_[3]
+ahnak2_mutenc = ohe_categories.get("AHNAK2 Mutation", [])
 mutation_encoder = LabelEncoder()
 mutation_encoder.fit(ahnak2_mutenc)
 
@@ -103,39 +98,69 @@ categorical_cols = ['oncotree_code', 'chemotherapy', 'tumor_other_histologic_sub
                         'ahnak2_mut', 'kmt2d_mut', 'stab2_mut', 'pde4dip_mut', 'map3k1_mut', 
                         'muc16_mut', 'cdh1_mut', 'atr_mut']
 
+
 # Preprocess and adjust input data to match model input
 def ml_prediction(input_data):
-    # Pastikan input_data adalah DataFrame
-    if isinstance(input_data, list):
-        input_data = pd.DataFrame(input_data)
-    # Menangani fitur numerik (scaling)
-    numerical_cols = input_data.select_dtypes(include=['float64', 'int64']).columns
-    X_new_numerical = scaler.transform(input_data[numerical_cols])
+    # Daftar fitur yang digunakan selama pelatihan
+    expected_features = [
+        "neoplasm_histologic_grade", "aurka", "chek1", "ccne1", "ahnak",
+        "e2f2", "cdc25a", "aph1b", "cdh1", "gsk3b", "lama2", "src", 
+        "tgfb3", "slc19a1", "lfng", "mapt", "cdk1", "hsd17b10", "bcl2",
+        "chemotherapy", "oncotree_code", "tumor_other_histologic_subtype",
+        "ahnak2_mut", "kmt2d_mut", "stab2_mut", "pde4dip_mut", 
+        "map3k1_mut", "muc16_mut", "cdh1_mut", "atr_mut"
+    ]
 
-    # Menangani fitur kategorikal (One-Hot Encoding), termasuk chemotherapy
-    X_new_categorical = ohe_encoder.transform(input_data[categorical_cols])
+    # buat validasi di data nya apabila ada data yang NaN, maka diisi 0 apabila numerical dan unknown apabila kategorikal
+    for feature in expected_features:
+        if feature not in input_data.columns:
+            input_data[feature] = 0 if feature not in ohe_categories else 'Unknown'
 
-    # Gabungkan fitur numerik dan kategorikal yang telah diproses
-    X_new_processed = np.hstack((X_new_numerical, X_new_categorical.toarray()))
-    predictions = model.predict(X_new_processed)
+    # Pastikan urutan kolom sesuai dengan yang diharapkan model
+    input_data = input_data[expected_features]
 
-    # Mendapatkan hasil prediksi kelas
+    # Encode kategori menjadi numerik
+    encoders = {
+        "oncotree_code": ohe_categories.get("Oncotree Code", []),
+        "tumor_other_histologic_subtype": ohe_categories.get("Tumor Other Histologic Subtype", []),
+        "chemotherapy": ohe_categories.get("Chemotherapy", []),
+        "ahnak2_mut": ohe_categories.get("AHNAK2 Mutation", []),
+        "kmt2d_mut" : ohe_categories.get("KMT2D Mutation", []),
+        "stab2_mut" : ohe_categories.get("STAB2 Mutation", []),
+        "pde4dip_mut" : ohe_categories.get("PDE4DIP Mutation", []),
+        "map3k1_mut" : ohe_categories.get("MAP3K1 Mutation", []),
+        "muc16_mut" : ohe_categories.get("MUC16 Mutation", []),
+        "cdh1_mut" : ohe_categories.get("CDH1 Mutation", []),
+        "atr_mut" : ohe_categories.get("ATR Mutation", [])
+    }
+
+    for feature, categories in encoders.items():
+        if feature in input_data.columns:
+            input_data[feature] = input_data[feature].apply(lambda x: categories.index(x) if x in categories else -1)  # Fallback ke -1 jika tidak ditemukan
+
+    # Pilih hanya kolom numerik untuk prediksi
+    numerical_cols = input_data.select_dtypes(include=[np.number]).columns
+    X_new_processed = input_data[numerical_cols].to_numpy(dtype=np.float32)
+
+    # buat validasi apabila jml inptan dengan feature dataset itu sama 
+    if len(X_new_processed.shape) == 1:
+        X_new_processed = X_new_processed.reshape(1, -1)
+
+    # Predict using ANN model
+    predictions = ml_model.predict(X_new_processed)
     predicted_classes = np.argmax(predictions, axis=1)
-    
-    # Menampilkan hasil prediksi
-    predicted_label = label_encoder.inverse_transform(predicted_classes)
+
+    # Ambil label tipe kanker dari JSON
+    cancer_types = ohe_categories.get("cancers_types", [])
+    predicted_label = [cancer_types[class_idx] for class_idx in predicted_classes]
 
     # Add prediction to input data for later insertion into Supabase
     input_data['prediction'] = predicted_label[0]
-
+    
     return predicted_label[0]
 
 # Function to get user input for Machine Learning model
 def get_user_input_ml():
-    # st.title('Prediction Cancer Type Using - Machine Learning')
-
-    # text = translations[st.session_state.get('language', 'en')]
-
     st.title(f"{text('prediction_title')}{text('machine_learning')}")
 
      # patient = st.text_input("Patient Name")
@@ -144,11 +169,6 @@ def get_user_input_ml():
     if not patient.strip():
         st.warning(text('patient_warning'))
         return None
-
-    if not patient.strip():
-        st.warning("Nama pasien harus diisi sebelum melanjutkan.")
-        return None
-
     # Slider for each kolom with min value and max value from Dataset training
     neoplasm_histologic_grade = st.slider('Neoplasm Histologic Grade', 1.0000, 3.0000, 1.0000)
     aurka = st.slider('AURKA', -2.27, 4.82, 0.0)
@@ -170,51 +190,24 @@ def get_user_input_ml():
     hsd17b10 = st.slider('HSD17B10', -3.7902, 5.0452, 0.0)
     bcl2 = st.slider('BCL2', -2.7919, 2.6561, 0.0)                  
 
-    # Oncotree Code sorted
-    oncotree_code_options=['IDC', 'MDLC', 'ILC', 'IMMC', 'BREAST', 'Unknown', 'MBC']
-    oncotree_code_sorted = sorted(oncotree_code_options)
-    # oncotree_code_sorted = ['Please Select'] + sorted(oncotree_code_options)
-    oncotree_code = st.selectbox('Oncotree Code', oncotree_code_sorted)
-
-    # Tumor other histologic Input sorted
-    tumor_other_histologic_options=['Ductal/NST', 'Mixed', 'Lobular', 'Tubular/ cribriform', 'Mucinous', 'Medullary', 'Other', 'Unknown', 'Metaplastic']
-    tumor_other_histologic_sorted = sorted(tumor_other_histologic_options)
-    tumor_other_histologic_subtype = st.selectbox('Tumor Other Histologic Subtype', tumor_other_histologic_sorted)
-
-    # Chemotherapy input
-    chemotherapy = st.selectbox('Chemotherapy', options=['yes','no'], index=1)
-
-    ahnak2_mut_categories = ohe_encoder.categories_[3]  # Kategori untuk AHNAK2 Mutation (indeks 3)
-    ahnak2_mut_categories_sorted = sorted(ahnak2_mut_categories)
-    ahnak2_mut = st.selectbox('AHNAK2 Mutation:', options=ahnak2_mut_categories_sorted, index=1)
-
-    kmt2d_mut_categories = ohe_encoder.categories_[4]  
-    kmt2d_mut_categories_sorted = sorted(kmt2d_mut_categories)
-    kmt2d_mut = st.selectbox('KMT2D Mutation:', options=kmt2d_mut_categories_sorted, index=0)
-
-    stab2_mut_categories = ohe_encoder.categories_[5]  
-    stab2_mut_categories_sorted = sorted(stab2_mut_categories)
-    stab2_mut = st.selectbox('STAB2 Mutation:', options=stab2_mut_categories_sorted, index=0)
-
-    pde4dip_mut_categories = ohe_encoder.categories_[6]  
-    pde4dip_mut_categories_sorted = sorted(pde4dip_mut_categories)
-    pde4dip_mut = st.selectbox('PDE4DIP Mutation:', options=pde4dip_mut_categories_sorted, index=0)
-
-    map3k1_mut_categories = ohe_encoder.categories_[7]  
-    map3k1_mut_categories_sorted = sorted(map3k1_mut_categories)
-    map3k1_mut = st.selectbox('MAP3K1 Mutation:', options=map3k1_mut_categories_sorted, index=0)
-
-    muc16_mut_categories = ohe_encoder.categories_[8]  
-    muc16_mut_categories_sorted = sorted(muc16_mut_categories)
-    muc16_mut = st.selectbox('MUC16 Mutation:', options=muc16_mut_categories_sorted, index=0)
-
-    cdh1_mut_categories = ohe_encoder.categories_[9]  
-    cdh1_mut_categories_sorted = sorted(cdh1_mut_categories)
-    cdh1_mut = st.selectbox('CDH1 Mutation:', options=cdh1_mut_categories_sorted, index=1)
-
-    atr_mut_categories = ohe_encoder.categories_[10]  
-    atr_mut_categories_sorted = sorted(atr_mut_categories)
-    atr_mut = st.selectbox('ATR Mutation:', options=atr_mut_categories_sorted, index=0)
+    # Menampilkan input dengan opsi dari JSON
+    if ohe_categories:
+        # Kategori tanpa opsi input manual (hanya selectbox)
+        oncotree_code = st.selectbox('Oncotree Code', ohe_categories.get("Oncotree Code", []))
+        tumor_other_histologic_subtype = st.selectbox('Tumor Other Histologic Subtype', ohe_categories.get("Tumor Other Histologic Subtype", []))
+        chemotherapy = st.selectbox('Chemotherapy', ohe_categories.get("Chemotherapy", []))
+        
+        # Kategori 
+        ahnak2_mut = st.selectbox('AHNAK2 Mutation', ohe_categories.get("AHNAK2 Mutation", []))
+        kmt2d_mut = st.selectbox('KMT2D Mutation', ohe_categories.get("KMT2D Mutation", []))
+        stab2_mut = st.selectbox('STAB2 Mutation', ohe_categories.get("STAB2 Mutation", []))
+        pde4dip_mut = st.selectbox('PDE4DIP Mutation', ohe_categories.get("PDE4DIP Mutation", []))
+        map3k1_mut = st.selectbox('MAP3K1 Mutation', ohe_categories.get("MAP3K1 Mutation", []))
+        muc16_mut = st.selectbox('MUC16 Mutation', ohe_categories.get("MUC16 Mutation", []))
+        cdh1_mut =st.selectbox('CDH1 Mutation', ohe_categories.get("CDH1 Mutation", []))
+        atr_mut = st.selectbox('ATR Mutation', ohe_categories.get("ATR Mutation", []))
+    else:
+        st.warning("Kategori tidak tersedia. Pastikan file JSON telah dimuat dengan benar.")
 
     # Create DataFrame from user input
     return pd.DataFrame({
@@ -259,7 +252,7 @@ def generate_pdf(input_data, result, model_type):
 
     # Title Section
     pdf.set_font("Times", "B", 18)
-    pdf.set_text_color("#A65277") 
+    pdf.set_text_color(138, 44, 82)  # Adjusted color
     pdf.cell(0, 10, f"Medical Prediction Report ({model_type})", 0, 1, 'C')
     pdf.ln(10)
 
@@ -276,10 +269,9 @@ def generate_pdf(input_data, result, model_type):
     pdf.cell(50, 10, "Patient Name:", 0, 0)
     pdf.cell(0, 10, f"{patient_name if patient_name else '[Not Provided]'}", 0, 1)
 
-
     # Clinical Data Section
     pdf.set_font("Times", "B", 14)
-    pdf.cell(0, 10, "Data", 0, 1)
+    pdf.cell(0, 10, "Clinical Data", 0, 1)
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())  # Line separator
     pdf.ln(5)
 
@@ -294,7 +286,15 @@ def generate_pdf(input_data, result, model_type):
     for key, value in input_data.items():
         if key != "patient":  # Skip the patient key
             pdf.cell(90, 10, f"{key.replace('_', ' ').capitalize()}:", 1, 0, 'L')
-            pdf.cell(0, 10, f"{value[0] if isinstance(value, list) else value}", 1, 1, 'L')
+            
+            # Format value safely
+            formatted_value = (
+                f"{value[0]:.2f}" if isinstance(value, list) and isinstance(value[0], (int, float)) else
+                f"{value:.2f}" if isinstance(value, (int, float)) else
+                f"{value}" if value else "[Not Provided]"
+            )
+            
+            pdf.cell(0, 10, formatted_value, 1, 1, 'L')
 
     pdf.ln(10)
 
@@ -304,7 +304,7 @@ def generate_pdf(input_data, result, model_type):
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())  # Line separator
     pdf.ln(5)
     pdf.set_font("Times", "", 12)
-    pdf.set_text_color("#8A2C52")  # Green color for prediction result
+    pdf.set_text_color(138, 44, 82)  # Adjusted color
     pdf.cell(50, 10, "Predicted Cancer Type:", 0, 0)
     pdf.cell(0, 10, f"{result}", 0, 1)
 
@@ -314,20 +314,17 @@ def generate_pdf(input_data, result, model_type):
 
     # Create a BytesIO object to hold the PDF
     pdf_output = io.BytesIO()
-    pdf_bytes = pdf.output(dest='S')  # Output PDF as bytearray  # Output PDF as bytes (latin1 encoding)
-    pdf_output.write(pdf_bytes)
+    pdf_output.write(pdf.output(dest='S'))  # Write the bytearray directly
     pdf_output.seek(0)
-
 
     # Display download link in Streamlit
     st.download_button(
-    label="Download PDF Report",
-    data=pdf_output,
-    file_name="medical_prediction_report.pdf",
-    mime="application/pdf"
-)
-    
-
+        label="Download PDF Report",
+        data=pdf_output,
+        file_name="medical_prediction_report.pdf",
+        mime="application/pdf"
+    )
+   
 def text(key):
     language = st.session_state.get('language', 'en')  # Default ke 'en'
     return translations[language].get(key, key)
@@ -340,6 +337,7 @@ def set_page_config():
         layout="wide",
         initial_sidebar_state="collapsed",
     )
+
 def inject_custom_css():
     """Inject custom CSS for styling."""
     st.markdown(
@@ -433,10 +431,14 @@ def render_sidebar():
 def dl_prediction(input_data):
     # Transform and normalize features for Deep Learning
     le_tumor_subtype = LabelEncoder()
-    le_tumor_subtype.fit(['Ductal/NST', 'Mixed', 'Lobular', 'Tubular/ cribriform', 'Mucinous', 'Medullary', 'Other', 'Unknown', 'Metaplastic'])
+    # le_tumor_subtype.fit(['Ductal/NST', 'Mixed', 'Lobular', 'Tubular/ cribriform', 'Mucinous', 'Medullary', 'Other', 'Unknown', 'Metaplastic'])
+    le_tumor_subtype.fit(ohe_categories.get("Tumor Other Histologic Subtype", []))
     
+
     le_oncotree_code = LabelEncoder()
-    le_oncotree_code.fit(['IDC', 'MDLC', 'ILC', 'IMMC', 'BREAST', 'Unknown', 'MBC'])
+    # le_oncotree_code.fit(['IDC', 'MDLC', 'ILC', 'IMMC', 'BREAST', 'Unknown', 'MBC'])
+    le_oncotree_code.fit(ohe_categories.get("Oncotree Code",[]))
+
 
     # Normalization and encoding
     input_data['tumor_other_histologic_subtype'] = le_tumor_subtype.transform([input_data['tumor_other_histologic_subtype']])[0]
@@ -460,16 +462,10 @@ def dl_prediction(input_data):
     predictions = dl_model.predict(processed_data)
     predicted_class = predictions.argmax(axis=1)
 
-    # Decode the prediction using LabelEncoder
-    cancer_types = [
-        'Breast Invasive Ductal Carcinoma',
-        'Breast Mixed Ductal and Lobular Carcinoma',
-        'Breast Invasive Lobular Carcinoma',
-        'Breast Invasive Mixed Mucinous Carcinoma',
-        'Breast',
-        'Unknown',
-        'Metaplastic Breast Cancer'
-    ]
+    
+    cancer_types = ohe_categories.get("cancers_types", [])
+
+
 
     le_cancer_type_detailed = LabelEncoder()
     le_cancer_type_detailed.fit(cancer_types)
@@ -483,8 +479,6 @@ def dl_prediction(input_data):
 # Function to get user input for DL model
 def get_user_input_dl():
 
-    # text = translations[st.session_state.get('language', 'en')]
-
     st.title(f"{text('prediction_title')}{text('deep_learning')}")
 
      # patient = st.text_input("Patient Name")
@@ -493,20 +487,17 @@ def get_user_input_dl():
     if not patient.strip():
         st.warning(text('patient_warning'))
         return None
-    # Define input fields for each feature
 
-    # Tumor other histologic Input sorted
-    tumor_other_histologic_options=['Ductal/NST', 'Mixed', 'Lobular', 'Tubular/ cribriform', 'Mucinous', 'Medullary', 'Other', 'Unknown', 'Metaplastic']
-    tumor_other_histologic_sorted = sorted(tumor_other_histologic_options)
-    tumor_other_histologic_subtype = st.selectbox('Tumor Other Histologic Subtype', tumor_other_histologic_sorted)
-
-    # Oncotree Code sorted
-    oncotree_code_options=['IDC', 'MDLC', 'ILC', 'IMMC', 'BREAST', 'Unknown', 'MBC']
-    oncotree_code_sorted = sorted(oncotree_code_options)
-    oncotree_code = st.selectbox('Oncotree Code', oncotree_code_sorted)
-    
-    # Select mutation from global_mutation
-    ahnak2_mut = st.selectbox("Select AHNAK2 Mutation", sorted(ahnak2_mutenc), index=sorted(ahnak2_mutenc).index('0'))
+    # Menampilkan input dengan opsi dari JSON
+    if ohe_categories:
+        # Kategori tanpa opsi input manual (hanya selectbox)
+        tumor_other_histologic_subtype = st.selectbox('Tumor Other Histologic Subtype', ohe_categories.get("Tumor Other Histologic Subtype", []))
+        oncotree_code = st.selectbox('Oncotree Code', ohe_categories.get("Oncotree Code", []))
+        
+        # Kategori dengan opsi input manual
+        ahnak2_mut = st.selectbox('AHNAK2 Mutation', ohe_categories.get("AHNAK2 Mutation", []))
+    else:
+        st.warning("Kategori tidak tersedia. Pastikan file JSON telah dimuat dengan benar.")
 
     aurka = st.slider('AURKA', -2.27, 4.82, 0.0)
     ccne1 = st.slider('CCNE1', -1.55, 5.64, 0.0)
@@ -523,24 +514,8 @@ def get_user_input_dl():
         'src': src
     }
 
-# Membuat custom JSON Encoder
-class CustomJSONEncoder(json.JSONEncoder):
-    def default(self, obj):
-        # Jika objek adalah pandas.Series, ubah menjadi list atau nilai scalar
-        if isinstance(obj, pd.Series):
-            if obj.size == 1:
-                return obj.item()  # Ambil nilai pertama
-            return obj.tolist()  # Ubah menjadi list jika lebih dari 1 elemen
-        # Jika objek adalah numpy data type, ubah menjadi tipe standar Python
-        if isinstance(obj, np.generic):
-            return obj.item()
-        # Jika objek adalah datetime, ubah menjadi ISO format string
-        if isinstance(obj, pd.Timestamp):
-            return obj.isoformat()
-        # Jika objek adalah tipe lain yang tidak bisa diserialisasi, kembalikan error
-        return super().default(obj)
 
-# Function to insert data into Supabase
+# Function to insert data into Supabase, convert data dari dataframe ke dict untuk masuk ke supabase nya
 def insert_to_supabase(input_data, model_type):    
     # Convert pandas Series to dictionary if input_data is a pandas Series
     if isinstance(input_data, pd.DataFrame):
@@ -596,7 +571,7 @@ def insert_to_supabase(input_data, model_type):
             st.write(f"Error saat memasukkan data ke Supabase: {e}")
 
     elif model_type == 'DL':
-        # Convert pandas Series to dictionary if input_data is a pandas Series
+        # Convert numpy Series to dictionary if input_data is a numpy Series
         if isinstance(input_data, pd.Series):
             input_data = input_data.to_dict()
         input_data = {key: (value.item() if isinstance(value, np.generic) else value) for key, value in input_data.items()}
@@ -614,7 +589,6 @@ def insert_to_supabase(input_data, model_type):
         # Insert data into Supabase DL table
         try:
             supabase.table("DL").insert(data_dl).execute()
-            # st.write(f"Data berhasil dimasukkan")
         except Exception as e:
             st.write(f"Error saat memasukkan data ke Supabase: {e}")
 
@@ -633,8 +607,6 @@ def main():
     inject_custom_css()
     render_sidebar()
 
-    # text = translations[st.session_state.get('language', 'en')]
-
     if not st.session_state.get('logged_in', False):
         st.write("Please login first!")
         return
@@ -647,13 +619,14 @@ def main():
         model_choice = st.radio(text('choose_method'), (text('machine_learning'), text('deep_learning')))
 
         # Get user input
-        if model_choice == 'Machine Learning':
+        if model_choice == '30 Features':
             input_data = get_user_input_ml()
             
             if st.button('Submit'):
                 result = ml_prediction(input_data)
                 # st.write(f"Predicted Cancer Type : {result}")
-
+                st.write(f"Predicted Cancer Type : {result}")
+                input_data["prediction"] = result
                 # Insert data into Supabase
                 insert_to_supabase(input_data, model_type='ML')
                 st.write(text('data_inserted'))
@@ -661,19 +634,19 @@ def main():
                 generate_pdf(input_data.iloc[0].to_dict(), result, model_type='Machine Learning')
 
 
-        elif model_choice == 'Deep Learning':
+        elif model_choice == '6 Features':
             input_data = get_user_input_dl()
 
             # Add submit button
             if st.button('Submit'):
                 result = dl_prediction(input_data)
-                # st.write(f"Predicted Cancer Type : {result}")
+                st.write(f"Predicted Cancer Type : {result}")
              
                 # Insert data into Supabase
                 insert_to_supabase(input_data, model_type='DL')
                 st.write(text('data_inserted'))
                 # Generate PDF report
-                generate_pdf(input_data, result, model_type='Deep Learning')
+                generate_pdf(input_data, result, model_type='Machine Learning')
 
 
 

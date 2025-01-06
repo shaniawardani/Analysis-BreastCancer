@@ -1,4 +1,4 @@
-import streamlit as st
+
 from supabase import create_client, Client
 import bcrypt
 import os
@@ -6,9 +6,8 @@ import re
 import datetime
 import secrets
 import jwt
-# from dotenv import load_dotenv
 
-
+import streamlit as st
 
 # # Configure Supabase
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
@@ -22,18 +21,7 @@ if not SUPABASE_URL or not SUPABASE_KEY or not JWT_SECRET:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-# load_dotenv()
 
-# # Configure Supabase
-# SUPABASE_URL = os.getenv("SUPABASE_URL")
-# SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-# JWT_SECRET = os.getenv("JWT_SECRET")  # Load JWT secret from environment variables
-
-# if not SUPABASE_URL or not SUPABASE_KEY:
-#     raise EnvironmentError("SUPABASE_URL or SUPABASE_KEY is not set in .env file or environment variables.")
-
-
-# supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Generate a token
 def generate_token(email):
